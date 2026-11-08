@@ -29,7 +29,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 .flow{position:absolute;overflow:visible;column-fill:auto;-webkit-column-fill:auto;
   font-family:var(--rfont);line-height:1.65;overflow-wrap:break-word;word-break:normal;text-align:left}
 .pn{position:absolute;left:0;right:0;text-align:center;font:12px -apple-system,system-ui,sans-serif;opacity:.45;pointer-events:none}
-.shade{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;opacity:0}
+.shade{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;opacity:0;will-change:opacity}
 .pv.front .shade{background:linear-gradient(to right,rgba(0,0,0,.45),rgba(0,0,0,0) 55%)}
 .pv.back .shade{background:linear-gradient(to left,rgba(0,0,0,.45),rgba(0,0,0,0) 55%)}
 
@@ -52,7 +52,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 
 #gutter{position:absolute;top:0;z-index:3;pointer-events:none;display:none;
   background:linear-gradient(to right,rgba(0,0,0,0),rgba(0,0,0,.17) 50%,rgba(0,0,0,0))}
-#cast{position:absolute;top:0;z-index:4;pointer-events:none;opacity:0}
+#cast{position:absolute;top:0;z-index:4;pointer-events:none;opacity:0;will-change:opacity}
 #leaf{position:absolute;top:0;z-index:5;transform-origin:0 50%;transform-style:preserve-3d;
   -webkit-transform-style:preserve-3d;visibility:hidden;will-change:transform}
 #leaf .pv{left:0;top:0;-webkit-backface-visibility:hidden;backface-visibility:hidden;box-shadow:none}
@@ -115,7 +115,7 @@ body:not(.no-doc) #welcome{display:none}
 
 <div id="welcome">
   <h1>DocReeder</h1>
-  <p>อ่านเอกสาร Word (.docx) แบบหนังสือ ปรับขนาดตัวอักษรได้ ปัดพลิกหน้า แนวตั้งเป็นหน้าเดี่ยว แนวนอนเป็นหน้าคู่</p>
+  <p>อ่านเอกสาร Word (.docx) และข้อความ (.txt) แบบหนังสือ ปรับขนาดตัวอักษรได้ ปัดพลิกหน้า แนวตั้งเป็นหน้าเดี่ยว แนวนอนเป็นหน้าคู่</p>
   <button class="big" id="btnWelcomeOpen">เปิดไฟล์เอกสาร</button>
   <small>ไฟล์ถูกประมวลผลในเครื่องคุณทั้งหมด ไม่มีการอัปโหลดไปไหน<br>
   ไฟล์ .doc รุ่นเก่าให้บันทึกเป็น .docx ก่อน (เปิดด้วย Pages หรือ Word แล้วส่งออก)<br>
@@ -161,7 +161,7 @@ body:not(.no-doc) #welcome{display:none}
 </footer>
 
 <input type="file" id="file" hidden
-  accept=".docx,.dotx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword">
+  accept=".docx,.dotx,.doc,.txt,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword">
 <div id="toast"></div>
 <div id="loading">กำลังเปิดเอกสาร…</div>
 
@@ -199,7 +199,8 @@ function mkView(cls) {
     show(i) {
       this.idx = i;
       const ok = i >= 0 && i < N;
-      this.flow.style.visibility = ok ? 'visible' : 'hidden';
+      // '' = inherit from parent (so the hidden page-turn leaf really hides its text)
+      this.flow.style.visibility = ok ? '' : 'hidden';
       this.pn.textContent = ok ? String(i + 1) : '';
       if (ok) this.flow.style.transform = 'translateX(' + (-i * G.pw) + 'px)';
     }
@@ -377,7 +378,7 @@ async function turnPage(dir) {
   if (turn || !hasDoc || !canTurn(dir)) return;
   closePanel();
   beginTurn(dir);
-  await animateTo(1, 560);
+  await animateTo(1, 480);
   finishTurn(true);
 }
 
@@ -511,7 +512,20 @@ function ensureMammoth() {
   return mammothPromise;
 }
 
-async function convert(buf) {
+function decodeText(buf) {
+  const u = new Uint8Array(buf);
+  if (u[0] === 0xFF && u[1] === 0xFE) return new TextDecoder('utf-16le').decode(u.subarray(2));
+  if (u[0] === 0xFE && u[1] === 0xFF) return new TextDecoder('utf-16be').decode(u.subarray(2));
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(u).replace(/^﻿/, ''); } catch (e) {}
+  try { return new TextDecoder('windows-874').decode(u); } catch (e) {}
+  return new TextDecoder().decode(u);
+}
+function textToHtml(t) {
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return t.split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean).map(l => '<p>' + esc(l) + '</p>').join('');
+}
+
+async function convert(buf, name) {
   const u = new Uint8Array(buf, 0, Math.min(8, buf.byteLength));
   if (u[0] === 0x50 && u[1] === 0x4B) {
     await ensureMammoth();
@@ -534,11 +548,18 @@ async function convert(buf) {
     return res.value;
   }
   if (u[0] === 0xD0 && u[1] === 0xCF) throw new Error('OLE');
+  // plain text: .txt by name, or anything without binary NUL bytes (UTF-16 files carry a BOM)
+  const head = new Uint8Array(buf, 0, Math.min(4096, buf.byteLength));
+  const utf16 = (head[0] === 0xFF && head[1] === 0xFE) || (head[0] === 0xFE && head[1] === 0xFF);
+  if (/\.txt$/i.test(name || '') || utf16 || !head.includes(0)) {
+    blobUrls.forEach(URL.revokeObjectURL); blobUrls = [];
+    return textToHtml(decodeText(buf));
+  }
   throw new Error('UNSUPPORTED');
 }
 
 async function loadBuffer(buf, name) {
-  const html = await convert(buf);
+  const html = await convert(buf, name);
   if (!html || !html.replace(/<[^>]*>/g, '').trim() && !/<img/i.test(html)) throw new Error('EMPTY');
   docHTML = html;
   views.forEach(v => { v.flow.innerHTML = html; });
@@ -546,7 +567,7 @@ async function loadBuffer(buf, name) {
   docKey = name + ':' + buf.byteLength;
   anchor = loadPos();
   document.body.classList.remove('no-doc');
-  const title = name.replace(/\.(docx|dotx|doc)$/i, '');
+  const title = name.replace(/\.(docx|dotx|doc|txt)$/i, '');
   $('#title').textContent = title; document.title = title + ' – DocReeder';
   G = computeGeometry(); applyGeometry();
   await measure();
@@ -558,7 +579,7 @@ async function loadBuffer(buf, name) {
 function explain(err) {
   const m = err && err.message;
   if (m === 'OLE') return 'ไฟล์ .doc รุ่นเก่ายังเปิดตรงๆ ไม่ได้ ให้เปิดด้วย Pages หรือ Word แล้วบันทึก/ส่งออกเป็น .docx ก่อน';
-  if (m === 'UNSUPPORTED') return 'รูปแบบไฟล์นี้ไม่รองรับ ใช้ได้เฉพาะ .docx';
+  if (m === 'UNSUPPORTED') return 'รูปแบบไฟล์นี้ไม่รองรับ ใช้ได้เฉพาะ .docx และ .txt';
   if (m === 'EMPTY') return 'ไม่พบเนื้อหาข้อความในไฟล์นี้';
   if (m === 'NOLIB') return 'โหลดตัวอ่าน .docx ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่';
   return 'เปิดไฟล์ไม่สำเร็จ: ' + (m || 'ไม่ทราบสาเหตุ');
