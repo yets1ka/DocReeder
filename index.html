@@ -23,16 +23,12 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--desk);overscroll
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 
 #stage{position:fixed;left:0;top:0;right:0;bottom:0;touch-action:none;overflow:hidden}
-#book{position:absolute;left:0;top:0;transform-origin:0 0;perspective:3200px}
+#book{position:absolute;left:0;top:0;transform-origin:0 0}
 .pv{position:absolute;top:0;overflow:hidden;background:var(--paper);color:var(--ink);
   box-shadow:0 0 0 1px rgba(0,0,0,.08),0 8px 28px rgba(0,0,0,.2);z-index:1}
 .flow{position:absolute;overflow:visible;column-fill:auto;-webkit-column-fill:auto;
   font-family:var(--rfont);line-height:1.65;overflow-wrap:break-word;word-break:normal;text-align:left}
 .pn{position:absolute;left:0;right:0;text-align:center;font:12px -apple-system,system-ui,sans-serif;opacity:.45;pointer-events:none}
-.shade{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;opacity:0;will-change:opacity}
-.pv.front .shade{background:linear-gradient(to right,rgba(0,0,0,.45),rgba(0,0,0,0) 55%)}
-.pv.back .shade{background:linear-gradient(to left,rgba(0,0,0,.45),rgba(0,0,0,0) 55%)}
-
 .flow p{margin:0 0 .7em;orphans:2;widows:2}
 .flow p:empty{display:none}
 .flow h1,.flow h2,.flow h3,.flow h4,.flow h5,.flow h6{line-height:1.3;margin:1em 0 .5em;
@@ -52,11 +48,16 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 
 #gutter{position:absolute;top:0;z-index:3;pointer-events:none;display:none;
   background:linear-gradient(to right,rgba(0,0,0,0),rgba(0,0,0,.17) 50%,rgba(0,0,0,0))}
-#cast{position:absolute;top:0;z-index:4;pointer-events:none;opacity:0;will-change:opacity}
-#leaf{position:absolute;top:0;z-index:5;transform-origin:0 50%;transform-style:preserve-3d;
-  -webkit-transform-style:preserve-3d;visibility:hidden;will-change:transform}
-#leaf .pv{left:0;top:0;-webkit-backface-visibility:hidden;backface-visibility:hidden;box-shadow:none}
-#leaf .pv.back{transform:rotateY(180deg)}
+#curl{position:absolute;top:0;z-index:5;visibility:hidden;pointer-events:none}
+#curl .cb,#curl .cc,#curl .flap,#curl .exw,#curl .ex,#curl .ks,#curl .fs{position:absolute;left:0;top:0;transform-origin:0 0}
+#curl .exw{overflow:hidden}
+#curl .cb{overflow:hidden;will-change:transform}
+#curl .flap{will-change:transform}
+#curl .ex{background:linear-gradient(to right,rgba(0,0,0,.42),rgba(0,0,0,.15) 40%,rgba(0,0,0,0))}
+#curl .ks{left:auto;right:0;height:100%;background:linear-gradient(to left,rgba(0,0,0,.28),rgba(0,0,0,.08) 50%,rgba(0,0,0,0))}
+#curl .fs{height:100%;background:linear-gradient(to right,rgba(0,0,0,.34),rgba(255,255,255,.22) 14%,rgba(0,0,0,.14) 55%,rgba(0,0,0,0))}
+#curl .pv{left:0;top:0;box-shadow:none;will-change:transform}
+#curl .pv.back{transform:scaleX(-1);transform-origin:50% 50%}
 
 .bar{position:fixed;left:0;right:0;z-index:20;background:var(--bar);color:var(--barink);
   -webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);display:flex;align-items:center;gap:14px;
@@ -108,8 +109,7 @@ body:not(.no-doc) #welcome{display:none}
 <div id="stage">
   <div id="book">
     <div id="gutter"></div>
-    <div id="cast"></div>
-    <div id="leaf"></div>
+    <div id="curl"></div>
   </div>
 </div>
 
@@ -153,6 +153,10 @@ body:not(.no-doc) #welcome{display:none}
     <label><span>การแสดงผล</span></label>
     <div class="seg" data-key="spread"><button data-v="auto">อัตโนมัติ</button><button data-v="1">หน้าเดี่ยว</button><button data-v="2">หน้าคู่</button></div>
   </div>
+  <div class="row">
+    <label><span>เสียงพลิกหน้า</span></label>
+    <div class="seg" data-key="sound"><button data-v="on">เปิด</button><button data-v="off">ปิด</button></div>
+  </div>
 </div>
 
 <footer class="bar" id="bottom">
@@ -178,7 +182,7 @@ const FONTS = {
   serif: '"Charter","Iowan Old Style",Georgia,"Thonburi","Sukhumvit Set",serif',
   sans: '-apple-system,"Sukhumvit Set","Thonburi",system-ui,sans-serif'
 };
-const S = { scale: 1, family: 'serif', theme: 'light', layout: 'a4', spread: 'auto' };
+const S = { scale: 1, family: 'serif', theme: 'light', layout: 'a4', spread: 'auto', sound: 'on' };
 try { Object.assign(S, JSON.parse(localStorage.getItem(SKEY) || '{}')); } catch (e) {}
 const saveS = () => { try { localStorage.setItem(SKEY, JSON.stringify(S)); } catch (e) {} };
 
@@ -186,16 +190,15 @@ const saveS = () => { try { localStorage.setItem(SKEY, JSON.stringify(S)); } cat
 let docHTML = '', N = 1, pos = 0, anchor = 0, hasDoc = false, G = null, docKey = '';
 let blobUrls = [], turn = null, relayoutToken = 0;
 
-const stage = $('#stage'), book = $('#book'), leaf = $('#leaf'), gutter = $('#gutter'), cast = $('#cast');
+const stage = $('#stage'), book = $('#book'), curl = $('#curl'), gutter = $('#gutter');
 
 function mkView(cls) {
   const pv = document.createElement('div'); pv.className = 'pv ' + cls;
   const flow = document.createElement('div'); flow.className = 'flow';
   const pn = document.createElement('div'); pn.className = 'pn';
-  const shade = document.createElement('div'); shade.className = 'shade';
-  pv.append(flow, pn, shade);
+  pv.append(flow, pn);
   return {
-    pv, flow, pn, shade, idx: -1,
+    pv, flow, pn, idx: -1,
     show(i) {
       this.idx = i;
       const ok = i >= 0 && i < N;
@@ -209,7 +212,11 @@ function mkView(cls) {
 const stA = mkView('st'), stB = mkView('st'), lf = mkView('front'), lb = mkView('back');
 book.insertBefore(stA.pv, gutter);
 book.insertBefore(stB.pv, gutter);
-leaf.append(lf.pv, lb.pv);
+const mk = cls => { const d = document.createElement('div'); d.className = cls; return d; };
+const exw = mk('exw'), ex = mk('ex'), Kb = mk('cb'), kc = mk('cc'), ks = mk('ks');
+const flap = mk('flap'), Fb = mk('cb'), fc = mk('cc'), fs = mk('fs');
+exw.append(ex); kc.append(lf.pv); Kb.append(kc, ks); fc.append(lb.pv); Fb.append(fc, fs); flap.append(Fb);
+curl.append(exw, Kb, flap);
 const views = [stA, stB, lf, lb];
 
 /* ---------- geometry ---------- */
@@ -253,7 +260,11 @@ function applyGeometry() {
   stA.pv.style.display = g.spread ? '' : 'none';
   stB.pv.style.left = (g.spread ? g.pw : 0) + 'px';
   lb.flow.style.display = g.spread ? '' : 'none';
-  leaf.style.width = g.pw + 'px'; leaf.style.height = g.ph + 'px';
+  const big = g.big = Math.ceil(g.pw + Math.hypot(g.pw, g.ph)) + 100;
+  [curl, exw, flap, kc, fc].forEach(el => { el.style.width = g.pw + 'px'; el.style.height = g.ph + 'px'; });
+  [Kb, Fb].forEach(el => { el.style.width = big + 'px'; el.style.height = (2 * big) + 'px'; });
+  ex.style.width = (0.22 * g.pw) + 'px'; ex.style.height = (2 * big) + 'px';
+  ks.style.width = (0.10 * g.pw) + 'px'; fs.style.width = (0.16 * g.pw) + 'px';
   gutter.style.display = g.spread ? 'block' : 'none';
   gutter.style.left = (g.pw - 16) + 'px'; gutter.style.width = '32px'; gutter.style.height = g.ph + 'px';
 }
@@ -317,13 +328,63 @@ function loadPos() {
   try { return (JSON.parse(localStorage.getItem(PKEY) || '{}')[docKey]) || 0; } catch (e) { return 0; }
 }
 
-/* ---------- page turn ---------- */
+/* ---------- page turn (curl) ---------- */
 const canTurn = dir => (dir > 0 ? pos + step() < N : pos - step() >= 0);
+const clamp01 = v => Math.max(0, Math.min(1, v));
 
-function beginTurn(dir) {
+// screen px -> leaf coordinates (origin at the spine, top edge of the page)
+function toLeaf(cx, cy) {
+  const sx = G.left + (G.spread ? G.pw : 0) * G.sc;
+  return [(cx - sx) / G.sc, (cy - G.top) / G.sc];
+}
+// keep the dragged corner within one page-length of the spine pivot (paper can't stretch)
+function clampP(px, py, yo) {
+  const W = G.pw;
+  px = Math.min(px, W);
+  const dx = px, dy = py - yo, d = Math.hypot(dx, dy);
+  if (d > W) { px = dx * W / d; py = yo + dy * W / d; }
+  return [px, py];
+}
+
+/* The leaf is the right-hand page seen from the spine. The grabbed corner O=(W,yo) is dragged
+   to P. The fold line is the perpendicular bisector of O-P; the part of the page on O's side is
+   reflected over the fold line (showing the back of the sheet), the rest stays flat. */
+function setFold(px, py, yo) {
+  const W = G.pw, big = G.big;
+  const ox = W, oy = yo;
+  let dx = ox - px, dy = oy - py, d = Math.hypot(dx, dy);
+  if (d < 1) { px = ox - 1; py = oy; dx = 1; dy = 0; d = 1; }
+  const nx = dx / d, ny = dy / d;                 // unit vector P -> O (points into the folded side)
+  const mx = (ox + px) / 2, my = (oy + py) / 2;   // a point on the fold line
+  const deg = Math.atan2(ny, nx) * 180 / Math.PI;
+  const rot = 'translate(' + mx + 'px,' + my + 'px) rotate(' + deg + 'deg)';
+  const unrot = 'rotate(' + (-deg) + 'deg) translate(' + (-mx) + 'px,' + (-my) + 'px)';
+  Kb.style.transform = rot + ' translate(' + (-big) + 'px,' + (-big) + 'px)';
+  kc.style.transform = 'translate(' + big + 'px,' + big + 'px) ' + unrot;
+  const frame = rot + ' translate(0px,' + (-big) + 'px)';
+  Fb.style.transform = frame;
+  ex.style.transform = frame;
+  fc.style.transform = 'translate(0px,' + big + 'px) ' + unrot;
+  const a = 1 - 2 * nx * nx, b = -2 * nx * ny, c = b, e2 = 1 - 2 * ny * ny;
+  const tx = mx - (a * mx + c * my), ty = my - (b * mx + e2 * my);
+  flap.style.transform = 'matrix(' + a + ',' + b + ',' + c + ',' + e2 + ',' + tx + ',' + ty + ')';
+  // fade the shading in/out at both ends so nothing pops when the turn starts or lands
+  const s = (clamp01(d / (0.25 * W)) * clamp01(mx / (0.25 * W))).toFixed(3);
+  ks.style.opacity = fs.style.opacity = ex.style.opacity = s;
+}
+
+function applyFold(P) {
+  P = clampP(P[0], P[1], turn.yo);
+  turn.P = P;
+  const q = clamp01((G.pw - P[0]) / (2 * G.pw));   // 0 = flat on the right, 1 = lying on the left
+  turn.p = turn.dir > 0 ? q : 1 - q;               // 0 = start of the gesture, 1 = finished
+  setFold(P[0], P[1], turn.yo);
+}
+
+function beginTurn(dir, yo) {
   const sp = G.spread;
-  turn = { dir, p: 0 };
-  leaf.style.left = (sp ? G.pw : 0) + 'px';
+  turn = { dir, yo, P: null, p: 0 };
+  curl.style.left = (sp ? G.pw : 0) + 'px';
   if (dir > 0) {
     if (sp) { lf.show(pos + 1); lb.show(pos + 2); stB.show(pos + 3); }
     else { lf.show(pos); lb.show(-1); stB.show(pos + 1); }
@@ -331,56 +392,88 @@ function beginTurn(dir) {
     if (sp) { lf.show(pos - 1); lb.show(pos); stA.show(pos - 2); }
     else { lf.show(pos - 1); lb.show(-1); }
   }
-  const rightSide = dir > 0 || !sp;
-  cast.style.left = (rightSide && sp ? G.pw : 0) + 'px';
-  cast.style.width = G.pw + 'px'; cast.style.height = G.ph + 'px';
-  cast.style.background = rightSide
-    ? 'linear-gradient(to right,rgba(0,0,0,.4),rgba(0,0,0,0) 65%)'
-    : 'linear-gradient(to left,rgba(0,0,0,.4),rgba(0,0,0,0) 65%)';
-  leaf.style.visibility = 'visible';
-  setProgress(0);
+  applyFold(dir > 0 ? [G.pw, yo] : [-G.pw, yo]);
+  curl.style.visibility = 'visible';
 }
 
-function setProgress(p) {
-  turn.p = p;
-  const ang = turn.dir > 0 ? -180 * p : -180 * (1 - p);
-  leaf.style.transform = 'rotateY(' + ang.toFixed(2) + 'deg)';
-  const s = Math.sin(Math.PI * p);
-  lf.shade.style.opacity = lb.shade.style.opacity = (s * 0.8).toFixed(3);
-  cast.style.opacity = s.toFixed(3);
+function finishTurn(completed) {
+  if (completed) pos += turn.dir * step();
+  curl.style.visibility = 'hidden';
+  turn = null;
+  render(true);
 }
 
-function animateTo(target, ms) {
-  const from = turn.p, start = performance.now();
-  const dur = Math.max(140, ms * Math.abs(target - from));
+function runAnim(ms, fn) {
+  const t0 = performance.now();
   return new Promise(res => {
     const f = now => {
-      const k = Math.min(1, (now - start) / dur);
-      const e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
-      setProgress(from + (target - from) * e);
+      const k = Math.min(1, (now - t0) / ms);
+      fn(k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
       if (k < 1) requestAnimationFrame(f); else res();
     };
     requestAnimationFrame(f);
   });
 }
 
-function finishTurn(completed) {
-  if (completed) pos += turn.dir * step();
-  leaf.style.visibility = 'hidden';
-  leaf.style.transform = '';
-  cast.style.opacity = 0;
-  const d = turn.dir;
-  turn = null;
-  render(true);
-}
-
+// tap / key / slider-free turn: the corner sweeps across in a lifted arc
 async function turnPage(dir) {
   if (turn || !hasDoc || !canTurn(dir)) return;
-  closePanel();
-  beginTurn(dir);
-  await animateTo(1, 480);
+  closePanel(); initAudio();
+  beginTurn(dir, G.ph);
+  playFlip();
+  const W = G.pw, H = G.ph, yo = turn.yo;
+  await runAnim(650, e => {
+    const q = dir > 0 ? e : 1 - e;
+    applyFold([W * (1 - 2 * q), yo - 0.2 * H * Math.sin(Math.PI * q)]);
+  });
   finishTurn(true);
 }
+
+// after a finger drag: carry the corner on to its destination
+async function releaseTurn(complete) {
+  const W = G.pw, yo = turn.yo, dir = turn.dir;
+  const tgt = complete ? (dir > 0 ? [-W, yo] : [W, yo]) : (dir > 0 ? [W, yo] : [-W, yo]);
+  const from = turn.P.slice();
+  const ms = 160 + 420 * Math.min(1, Math.hypot(tgt[0] - from[0], tgt[1] - from[1]) / (2 * W));
+  if (complete) playFlip();
+  await runAnim(ms, e => applyFold([from[0] + (tgt[0] - from[0]) * e, from[1] + (tgt[1] - from[1]) * e]));
+  finishTurn(complete);
+}
+
+/* ---------- page-flip sound ---------- */
+const FLIP_B64 = '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';
+let actx = null, flipBuf = null, flipOffset = 0;
+function initAudio() {
+  if (S.sound !== 'on') return;
+  if (actx) { if (actx.state === 'suspended') { try { actx.resume(); } catch (e) {} } return; }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try { actx = new AC(); } catch (e) { actx = null; return; }
+  try {
+    const bin = atob(FLIP_B64), u = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    const ok = b => {
+      flipBuf = b;
+      const d = b.getChannelData(0); let i = 0;
+      while (i < d.length && Math.abs(d[i]) < 0.015) i++;          // skip leading silence
+      flipOffset = Math.max(0, i / b.sampleRate - 0.005);
+    };
+    const p = actx.decodeAudioData(u.buffer, ok, () => {});
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+}
+function playFlip() {
+  if (S.sound !== 'on' || !actx || !flipBuf) return;
+  try {
+    if (actx.state === 'suspended') actx.resume();
+    const src = actx.createBufferSource(); src.buffer = flipBuf;
+    src.playbackRate.value = 0.94 + Math.random() * 0.14;           // tiny variation so it doesn't feel looped
+    const g = actx.createGain(); g.gain.value = 0.9;
+    src.connect(g); g.connect(actx.destination);
+    src.start(0, flipOffset);
+  } catch (e) {}
+}
+['pointerup', 'touchend', 'click'].forEach(ev => document.addEventListener(ev, initAudio, true));
 
 /* ---------- gestures ---------- */
 let drag = null;
@@ -397,23 +490,21 @@ stage.addEventListener('pointermove', e => {
   if (dt > 0) { drag.vx = (e.clientX - drag.lx) / dt; drag.lx = e.clientX; drag.lt = now; }
   if (!drag.active && !drag.dead && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.2) {
     const dir = dx < 0 ? 1 : -1;
-    if (canTurn(dir)) { drag.active = true; drag.dir = dir; closePanel(); beginTurn(dir); }
-    else drag.dead = true;
+    if (canTurn(dir)) {
+      drag.active = true; drag.dir = dir; closePanel(); initAudio();
+      const ly0 = toLeaf(drag.x0, drag.y0)[1];
+      beginTurn(dir, ly0 > G.ph / 2 ? G.ph : 0);      // grab the nearest top/bottom corner
+      drag.P0 = turn.P.slice();
+    } else drag.dead = true;
   }
-  if (drag.active) {
-    const span = G.pw * G.sc * 0.85;
-    const raw = (drag.dir > 0 ? -dx : dx) / span;
-    setProgress(Math.max(0, Math.min(1, raw)));
-  }
+  if (drag.active) applyFold([drag.P0[0] + dx / G.sc, drag.P0[1] + dy / G.sc]);
 });
 async function endDrag(e, cancel) {
   if (!drag || e.pointerId !== drag.id) return;
   const d = drag; drag = null;
   if (d.active) {
     const fast = (d.dir > 0 ? -d.vx : d.vx) > 0.45;
-    const complete = !cancel && (turn.p > 0.35 || fast);
-    await animateTo(complete ? 1 : 0, 440);
-    finishTurn(complete);
+    await releaseTurn(!cancel && (turn.p > 0.22 || fast));
   } else if (!cancel && !d.dead) {
     const moved = Math.hypot(e.clientX - d.x0, e.clientY - d.y0);
     if (moved < 10 && performance.now() - d.t0 < 600) tap(e.clientX);
@@ -475,7 +566,8 @@ document.querySelectorAll('.seg').forEach(seg => {
     const b = e.target.closest('button'); if (!b) return;
     const k = seg.dataset.key; S[k] = b.dataset.v; saveS(); refreshPanel();
     if (k === 'theme' || k === 'family') applyTheme();
-    if (k !== 'theme') scheduleRelayout(40);
+    if (k === 'family' || k === 'layout' || k === 'spread') scheduleRelayout(40);
+    if (k === 'sound' && S.sound === 'on') { initAudio(); setTimeout(playFlip, 300); }
   });
 });
 $('#aMinus').addEventListener('click', () => setScale(S.scale - 0.1));
