@@ -102,6 +102,42 @@ body:not(.no-doc) #welcome{display:none}
   font-size:15px;line-height:1.5;display:none;text-align:center}
 #loading{position:fixed;left:0;top:0;right:0;bottom:0;z-index:50;background:rgba(0,0,0,.35);color:#fff;
   display:none;align-items:center;justify-content:center;font-size:18px}
+
+input,textarea{-webkit-user-select:text;user-select:text;font:inherit;color:inherit}
+.btn{white-space:nowrap;flex:none}
+.btn:disabled{opacity:.35}
+.btn.on,.btn.pri{background:var(--accent);color:#fff;border-color:transparent}
+.btn.dot{position:relative}
+.btn.dot::after{content:'';position:absolute;right:-4px;top:-4px;width:11px;height:11px;border-radius:50%;background:#ff453a;border:2px solid var(--bar)}
+.edit-only{display:none}
+body.editing .edit-only{display:inline-block}
+#btnSave{display:none}
+body.editing #btnSave,body.dirty #btnSave{display:inline-block}
+.bar{gap:10px}
+mark.sm{background:#ffe066;color:#111;border-radius:2px}
+mark.sm.cur{background:#ff9f43;box-shadow:0 0 0 2px #ff9f43}
+#findbar{position:fixed;left:0;right:0;z-index:25;top:calc(56px + env(safe-area-inset-top));background:var(--bar);color:var(--barink);
+  border-bottom:1px solid var(--line);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);padding:10px 18px;display:none}
+body.find-open #findbar{display:block}
+body.hide-ui #findbar{display:none}
+.frow{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.frow:last-child{margin-bottom:0}
+#frow2{display:none}
+body.editing #frow2{display:flex}
+.ti{flex:1;min-width:0;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(128,128,128,.12);font-size:17px}
+#fcount{font-variant-numeric:tabular-nums;font-size:14px;opacity:.8;min-width:54px;text-align:center}
+.modal{position:fixed;left:0;top:0;right:0;bottom:0;z-index:60;background:rgba(0,0,0,.42);display:none}
+.modal.open{display:block}
+.card{position:absolute;left:50%;top:calc(56px + env(safe-area-inset-top));transform:translateX(-50%);width:min(680px,calc(100vw - 28px));
+  background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:0 14px 50px rgba(0,0,0,.35)}
+.card h3{margin:0 0 10px;font-size:17px}
+.card textarea{display:block;width:100%;min-height:170px;max-height:38vh;resize:vertical;padding:10px 12px;border-radius:10px;
+  border:1px solid var(--line);background:rgba(128,128,128,.1);font-size:18px;line-height:1.55;font-family:var(--rfont)}
+.card .hint{font-size:13px;opacity:.7;margin:8px 0 0;line-height:1.5}
+.card .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+.btn.danger{color:#ff453a;margin-right:auto}
+#sMsg{font-size:15px;opacity:.9;margin:0;line-height:1.6}
+.warn{font-size:13px;color:#d9822b;margin-top:8px;line-height:1.5;max-height:22vh;overflow:auto;white-space:pre-wrap}
 </style>
 </head>
 <body class="no-doc">
@@ -124,9 +160,50 @@ body:not(.no-doc) #welcome{display:none}
 
 <header class="bar" id="top">
   <div id="title">DocReeder</div>
+  <button class="btn" id="btnFind">ค้นหา</button>
+  <button class="btn" id="btnEdit">แก้ไข</button>
+  <button class="btn edit-only" id="btnUndo" disabled>เลิกทำ</button>
+  <button class="btn pri" id="btnSave">บันทึก</button>
   <button class="btn" id="btnOpen">เปิดไฟล์</button>
   <button class="btn" id="btnAa" aria-label="การตั้งค่าการอ่าน"><b>A</b>a</button>
 </header>
+
+<div id="findbar">
+  <div class="frow">
+    <input class="ti" id="fq" type="text" placeholder="ค้นหา" enterkeyhint="search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <span id="fcount"></span>
+    <button class="btn" id="fprev" aria-label="ก่อนหน้า">‹</button>
+    <button class="btn" id="fnext" aria-label="ถัดไป">›</button>
+    <button class="btn" id="fclose">ปิด</button>
+  </div>
+  <div class="frow" id="frow2">
+    <input class="ti" id="frep" type="text" placeholder="แทนที่ด้วย" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <button class="btn" id="frepone">แทนที่</button>
+    <button class="btn" id="frepall">แทนที่ทั้งหมด</button>
+  </div>
+</div>
+
+<div class="modal" id="mEdit"><div class="card">
+  <h3>แก้ไขย่อหน้า</h3>
+  <textarea id="eta" autocorrect="off" autocapitalize="off"></textarea>
+  <p class="hint">กด Enter เพื่อขึ้นย่อหน้าใหม่ · เว้นว่างทั้งหมดแล้วกดตกลง = ลบย่อหน้านี้ · ตัวหนา/เอียงของคำที่ไม่ได้แก้จะคงไว้ · เครื่องหมาย ↵ คือการขึ้นบรรทัดใหม่ในย่อหน้าเดิม</p>
+  <div class="acts">
+    <button class="btn danger" id="edel">ลบย่อหน้า</button>
+    <button class="btn" id="ecancel">ยกเลิก</button>
+    <button class="btn pri" id="eok">ตกลง</button>
+  </div>
+</div></div>
+
+<div class="modal" id="mSave"><div class="card">
+  <h3>บันทึกไฟล์</h3>
+  <p id="sMsg"></p>
+  <div class="warn" id="sWarn"></div>
+  <div class="acts">
+    <button class="btn" id="sClose">ปิด</button>
+    <button class="btn" id="sDl" disabled>ดาวน์โหลด</button>
+    <button class="btn pri" id="sShare" disabled>บันทึกลงไฟล์…</button>
+  </div>
+</div></div>
 
 <div id="panel">
   <div class="row">
@@ -507,22 +584,25 @@ async function endDrag(e, cancel) {
     await releaseTurn(!cancel && (turn.p > 0.22 || fast));
   } else if (!cancel && !d.dead) {
     const moved = Math.hypot(e.clientX - d.x0, e.clientY - d.y0);
-    if (moved < 10 && performance.now() - d.t0 < 600) tap(e.clientX);
+    if (moved < 10 && performance.now() - d.t0 < 600) tap(e.clientX, e.clientY);
   }
 }
 stage.addEventListener('pointerup', e => endDrag(e, false));
 stage.addEventListener('pointercancel', e => endDrag(e, true));
 document.addEventListener('gesturestart', e => e.preventDefault());
 
-function tap(x) {
+function tap(x, y) {
   if (isPanelOpen()) { closePanel(); return; }
+  if (editing && !modalOpen) { const blk = blockAt(x, y); if (blk) { openEditor(blk); return; } }
   const r = x / innerWidth;
   if (r < 0.22) turnPage(-1);
   else if (r > 0.78) turnPage(1);
   else toggleUI();
 }
 document.addEventListener('keydown', e => {
-  if (!hasDoc) return;
+  if (!hasDoc || modalOpen) return;
+  const tg = e.target && e.target.tagName;
+  if (tg === 'INPUT' || tg === 'TEXTAREA') return;
   if (e.key === 'ArrowRight' || e.key === 'PageDown' || e.key === ' ') { e.preventDefault(); turnPage(1); }
   else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); turnPage(-1); }
 });
@@ -534,7 +614,7 @@ function closePanel() { document.body.classList.remove('panel-open'); }
 function showUI(auto) {
   document.body.classList.remove('hide-ui');
   clearTimeout(uiTimer);
-  if (auto) uiTimer = setTimeout(() => { if (!isPanelOpen()) hideUI(); }, 3500);
+  if (auto && !editing && !find.open) uiTimer = setTimeout(() => { if (!isPanelOpen() && !editing && !find.open) hideUI(); }, 3500);
 }
 function hideUI() { document.body.classList.add('hide-ui'); closePanel(); }
 function toggleUI() { document.body.classList.contains('hide-ui') ? showUI(false) : hideUI(); }
@@ -604,17 +684,25 @@ function ensureMammoth() {
   return mammothPromise;
 }
 
-function decodeText(buf) {
+function readText(buf) {
   const u = new Uint8Array(buf);
-  if (u[0] === 0xFF && u[1] === 0xFE) return new TextDecoder('utf-16le').decode(u.subarray(2));
-  if (u[0] === 0xFE && u[1] === 0xFF) return new TextDecoder('utf-16be').decode(u.subarray(2));
-  try { return new TextDecoder('utf-8', { fatal: true }).decode(u).replace(/^﻿/, ''); } catch (e) {}
-  try { return new TextDecoder('windows-874').decode(u); } catch (e) {}
-  return new TextDecoder().decode(u);
+  let text, enc = 'utf-8', bom = false;
+  if (u[0] === 0xFF && u[1] === 0xFE) { text = new TextDecoder('utf-16le').decode(u.subarray(2)); enc = 'utf-16'; }
+  else if (u[0] === 0xFE && u[1] === 0xFF) { text = new TextDecoder('utf-16be').decode(u.subarray(2)); enc = 'utf-16'; }
+  else {
+    bom = u[0] === 0xEF && u[1] === 0xBB && u[2] === 0xBF;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(bom ? u.subarray(3) : u); }
+    catch (e) {
+      enc = 'windows-874'; bom = false;
+      try { text = new TextDecoder('windows-874').decode(u); } catch (e2) { text = new TextDecoder().decode(u); }
+    }
+  }
+  const eol = text.indexOf('\r\n') >= 0 ? '\r\n' : (text.indexOf('\n') >= 0 ? '\n' : (text.indexOf('\r') >= 0 ? '\r' : '\n'));
+  return { lines: text.split(/\r\n|\r|\n/), eol, bom, enc };
 }
-function textToHtml(t) {
+function textToHtml(lines) {
   const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return t.split(/\r\n|\r|\n/).map(l => l.trim()).filter(Boolean).map(l => '<p>' + esc(l) + '</p>').join('');
+  return lines.map(l => l.trim()).filter(Boolean).map(l => '<p>' + esc(l) + '</p>').join('');
 }
 
 async function convert(buf, name) {
@@ -637,7 +725,7 @@ async function convert(buf, name) {
         return { src: url };
       }))
     });
-    return res.value;
+    return { html: res.value, kind: 'docx' };
   }
   if (u[0] === 0xD0 && u[1] === 0xCF) throw new Error('OLE');
   // plain text: .txt by name, or anything without binary NUL bytes (UTF-16 files carry a BOM)
@@ -645,18 +733,30 @@ async function convert(buf, name) {
   const utf16 = (head[0] === 0xFF && head[1] === 0xFE) || (head[0] === 0xFE && head[1] === 0xFF);
   if (/\.txt$/i.test(name || '') || utf16 || !head.includes(0)) {
     blobUrls.forEach(URL.revokeObjectURL); blobUrls = [];
-    return textToHtml(decodeText(buf));
+    const info = readText(buf);
+    return { html: textToHtml(info.lines), kind: 'txt', txtInfo: info };
   }
   throw new Error('UNSUPPORTED');
 }
 
 async function loadBuffer(buf, name) {
-  const html = await convert(buf, name);
+  const conv = await convert(buf, name);
+  const html = conv.html;
   if (!html || !html.replace(/<[^>]*>/g, '').trim() && !/<img/i.test(html)) throw new Error('EMPTY');
-  docHTML = html;
-  views.forEach(v => { v.flow.innerHTML = html; });
-  hasDoc = true; turn = null;
+  docKind = conv.kind; txtInfo = conv.txtInfo || null; origBuf = buf; docName = name;
   docKey = name + ':' + buf.byteLength;
+  // the editable copy lives in an inert document (no image loading, never shown directly)
+  container = document.implementation.createHTMLDocument('').createElement('div');
+  container.innerHTML = html;
+  tagBlocks(container);
+  savedSnap = '{}'; undoStack = []; $('#btnUndo').disabled = true;
+  await restoreEdits();
+  find.open = false; find.q = ''; find.matches = []; find.cur = -1; $('#fq').value = '';
+  document.body.classList.remove('find-open');
+  setEditing(false);
+  docHTML = container.innerHTML;
+  views.forEach(v => { v.flow.innerHTML = docHTML; });
+  hasDoc = true; turn = null;
   anchor = loadPos();
   document.body.classList.remove('no-doc');
   const title = name.replace(/\.(docx|dotx|doc|txt)$/i, '');
@@ -665,6 +765,7 @@ async function loadBuffer(buf, name) {
   await measure();
   pos = alignPos(Math.floor(anchor * N + 1e-6));
   render(false);
+  updateDirty();
   showUI(true);
 }
 
@@ -713,9 +814,566 @@ async function idbSet(k, v) {
   return new Promise((res, rej) => { const tx = db.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
 }
 
+/* ================= find / edit / save ================= */
+const BLK = 'p,h1,h2,h3,h4,h5,h6,li';
+const NESTED = 'p,h1,h2,h3,h4,h5,h6,li,ul,ol,table,blockquote';
+const W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+const XML_NS = 'http://www.w3.org/XML/1998/namespace';
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const norm = s => s.replace(/\s+/g, ' ').trim();
+
+let container = null, origText = [], docKind = 'docx', origBuf = null, docName = '', txtInfo = null;
+let undoStack = [], editing = false, dirty = false, savedSnap = '{}', modalOpen = false, pendingResize = false;
+let editTarget = null, persistTimer = null, searchTimer = null, savedFile = null;
+const find = { open: false, q: '', matches: [], cur: -1 };
+
+/* ---- text atoms: a paragraph is a list of text pieces / line breaks / zero-width objects ---- */
+function textOf(atoms) {
+  let s = '';
+  for (const a of atoms) s += a.kind === 't' ? a.text : a.kind === 'u' ? a.ch : '';
+  return s;
+}
+function layout(atoms) {
+  let pos = 0;
+  for (const a of atoms) {
+    a.start = pos; a.len = a.kind === 't' ? a.text.length : a.kind === 'u' ? 1 : 0;
+    pos += a.len; a.end = pos;
+  }
+  return pos;
+}
+
+/* adapter for the HTML we display (works on an inert copy of the document) */
+const domAd = {
+  atoms(block) {
+    const out = [];
+    const walk = n => {
+      for (let c = n.firstChild; c; c = c.nextSibling) {
+        if (c.nodeType === 3) out.push({ kind: 't', node: c, text: c.data });
+        else if (c.nodeType === 1) {
+          const tag = c.nodeName;
+          if (tag === 'BR') out.push({ kind: 'u', node: c, ch: '↵' });
+          else if (c.matches(NESTED)) continue;
+          else if (tag === 'IMG' || tag === 'HR') out.push({ kind: 'bar', node: c, movable: true });
+          else walk(c);
+        }
+      }
+    };
+    walk(block);
+    return out;
+  },
+  build(text, doc) {
+    const nodes = [];
+    text.split('↵').forEach((p, i) => { if (i) nodes.push(doc.createElement('br')); if (p) nodes.push(doc.createTextNode(p)); });
+    return nodes;
+  },
+  replaceText(a, left, ins, right) {
+    const n = a.node, doc = n.ownerDocument, par = n.parentNode, nodes = [];
+    if (left) nodes.push(doc.createTextNode(left));
+    nodes.push(...this.build(ins, doc));
+    if (right) nodes.push(doc.createTextNode(right));
+    for (const x of nodes) par.insertBefore(x, n);
+    par.removeChild(n);
+  },
+  setText(a, t) { a.node.data = t; },
+  remove(a) { if (a.node.parentNode) a.node.parentNode.removeChild(a.node); },
+  appendNew(block, ins) { for (const x of this.build(ins, block.ownerDocument)) block.appendChild(x); },
+  clone(block) { return block.cloneNode(true); },
+  insertAfter(block, c) { block.parentNode.insertBefore(c, block.nextSibling); }
+};
+
+/* adapter for word/document.xml of the original .docx (keeps runs, styles, images, tables) */
+const nearestP = n => {
+  for (let x = n.parentNode; x; x = x.parentNode) if (x.localName === 'p' && x.namespaceURI === W_NS) return x;
+  return null;
+};
+const xmlAd = {
+  atoms(p) {
+    const out = [];
+    for (const r of Array.from(p.getElementsByTagNameNS(W_NS, 'r'))) {
+      if (nearestP(r) !== p) continue;
+      for (let c = r.firstChild; c; c = c.nextSibling) {
+        if (c.nodeType !== 1 || c.namespaceURI !== W_NS) continue;
+        const ln = c.localName;
+        if (ln === 't') out.push({ kind: 't', node: c, text: c.textContent });
+        else if (ln === 'tab') out.push({ kind: 'u', node: c, ch: '\t' });
+        else if (ln === 'cr') out.push({ kind: 'u', node: c, ch: '↵' });
+        else if (ln === 'br') {
+          const ty = c.getAttributeNS(W_NS, 'type');
+          out.push(!ty || ty === 'textWrapping' ? { kind: 'u', node: c, ch: '↵' } : { kind: 'bar', node: c, movable: true });
+        } else if (ln === 'drawing' || ln === 'pict') out.push({ kind: 'bar', node: c, movable: true });
+      }
+    }
+    return out;
+  },
+  mkT(doc, text) {
+    const t = doc.createElementNS(W_NS, 'w:t');
+    t.textContent = text; t.setAttributeNS(XML_NS, 'xml:space', 'preserve');
+    return t;
+  },
+  build(text, doc) {
+    const out = []; let buf = '';
+    const flush = () => { if (buf) { out.push(this.mkT(doc, buf)); buf = ''; } };
+    for (const ch of text) {
+      if (ch === '\t') { flush(); out.push(doc.createElementNS(W_NS, 'w:tab')); }
+      else if (ch === '↵') { flush(); out.push(doc.createElementNS(W_NS, 'w:br')); }
+      else buf += ch;
+    }
+    flush();
+    return out;
+  },
+  replaceText(a, left, ins, right) {
+    const n = a.node, doc = n.ownerDocument, par = n.parentNode, nodes = [];
+    if (left) nodes.push(this.mkT(doc, left));
+    nodes.push(...this.build(ins, doc));
+    if (right) nodes.push(this.mkT(doc, right));
+    for (const x of nodes) par.insertBefore(x, n);
+    par.removeChild(n);
+  },
+  setText(a, t) { a.node.textContent = t; a.node.setAttributeNS(XML_NS, 'xml:space', 'preserve'); },
+  remove(a) { if (a.node.parentNode) a.node.parentNode.removeChild(a.node); },
+  appendNew(p, ins) {
+    const doc = p.ownerDocument;
+    const runs = Array.from(p.getElementsByTagNameNS(W_NS, 'r')).filter(r => nearestP(r) === p);
+    const last = runs[runs.length - 1];
+    const rpr = last && Array.from(last.childNodes).find(c => c.localName === 'rPr' && c.namespaceURI === W_NS);
+    const r = doc.createElementNS(W_NS, 'w:r');
+    if (rpr) r.appendChild(rpr.cloneNode(true));
+    for (const x of this.build(ins, doc)) r.appendChild(x);
+    p.appendChild(r);
+  },
+  clone(p) { return p.cloneNode(true); },
+  insertAfter(p, c) { p.parentNode.insertBefore(c, p.nextSibling); }
+};
+
+/* ---- minimal diff: turns "old text -> new text" into a few small replace hunks ---- */
+function diffHunks(a, b) {
+  const out = [], MINLEN = 3;
+  const m = Math.min(a.length, b.length);
+  let p = 0; while (p < m && a.charCodeAt(p) === b.charCodeAt(p)) p++;
+  let q = 0; while (q < m - p && a.charCodeAt(a.length - 1 - q) === b.charCodeAt(b.length - 1 - q)) q++;
+  const rec = (alo, ahi, blo, bhi) => {
+    if (alo >= ahi && blo >= bhi) return;
+    if (alo >= ahi || blo >= bhi || (ahi - alo) * (bhi - blo) > 4e6) { out.push({ s: alo, e: ahi, ins: b.slice(blo, bhi) }); return; }
+    const w = bhi - blo;
+    let prev = new Uint32Array(w + 1), cur = new Uint32Array(w + 1);
+    let best = 0, ea = 0, eb = 0;
+    for (let i = alo; i < ahi; i++) {
+      const ca = a.charCodeAt(i);
+      for (let j = 0; j < w; j++) {
+        if (ca === b.charCodeAt(blo + j)) { const v = prev[j] + 1; cur[j + 1] = v; if (v > best) { best = v; ea = i; eb = blo + j; } }
+        else cur[j + 1] = 0;
+      }
+      const t = prev; prev = cur; cur = t;
+    }
+    if (best < MINLEN) { out.push({ s: alo, e: ahi, ins: b.slice(blo, bhi) }); return; }
+    const as = ea - best + 1, bs = eb - best + 1;
+    rec(alo, as, blo, bs); rec(as + best, ahi, bs + best, bhi);
+  };
+  rec(p, a.length - q, p, b.length - q);
+  return out;
+}
+
+/* replace characters [s,e) of a paragraph with `ins`, keeping the formatting of everything else */
+function replaceRange(ad, block, s, e, ins) {
+  if (s === e && !ins) return;
+  const atoms = ad.atoms(block); layout(atoms);
+  const insAtom = atoms.find(a => a.kind === 't' && a.len > 0 && a.start <= s && s <= a.end)
+    || atoms.find(a => a.kind === 't' && a.start <= s && s <= a.end) || null;
+  for (const a of atoms) {
+    if (a.kind === 't') {
+      const L = a.len;
+      const left = a.text.slice(0, Math.max(0, Math.min(L, s - a.start)));
+      const right = a.text.slice(Math.max(0, Math.min(L, e - a.start)));
+      if (a === insAtom) ad.replaceText(a, left, ins, right);
+      else {
+        const nt = left + right;
+        if (nt === a.text) continue;
+        if (nt === '') ad.remove(a); else ad.setText(a, nt);
+      }
+    } else if (a.kind === 'u') {
+      if (s < e && a.start >= s && a.end <= e) ad.remove(a);
+    }
+  }
+  if (!insAtom && ins) ad.appendNew(block, ins);
+}
+
+function splitBlock(ad, block, offset) {
+  const clone = ad.clone(block);
+  const a1 = ad.atoms(block), a2 = ad.atoms(clone);
+  layout(a1); const total = layout(a2);
+  const b1 = a1.filter(a => a.kind === 'bar'), b2 = a2.filter(a => a.kind === 'bar');
+  replaceRange(ad, clone, 0, offset, '');
+  replaceRange(ad, block, offset, total, '');
+  b1.forEach(a => { if (a.movable && a.start >= offset) ad.remove(a); });
+  b2.forEach(a => { if (a.movable && a.start < offset) ad.remove(a); });
+  ad.insertAfter(block, clone);
+  return clone;
+}
+
+/* make one paragraph read `parts` (several parts = split into several paragraphs) */
+function applyParts(ad, block, parts) {
+  parts = parts.filter(x => x !== '');
+  const joined = parts.join('');
+  const old = textOf(ad.atoms(block));
+  if (old !== joined) {
+    const hs = diffHunks(old, joined);
+    for (let i = hs.length - 1; i >= 0; i--) replaceRange(ad, block, hs[i].s, hs[i].e, hs[i].ins);
+  }
+  const offs = []; let acc = 0;
+  for (let i = 0; i < parts.length - 1; i++) { acc += parts[i].length; offs.push(acc); }
+  const made = [block];
+  for (let i = offs.length - 1; i >= 0; i--) made.splice(1, 0, splitBlock(ad, block, offs[i]));
+  return made;
+}
+
+/* ---- the editable document model ---- */
+const blocksOf = root => Array.from(root.querySelectorAll(BLK)).filter(el => textOf(domAd.atoms(el)).trim() !== '');
+function tagBlocks(root) {
+  origText = [];
+  blocksOf(root).forEach((el, i) => {
+    el.setAttribute('data-o', i); el.setAttribute('data-s', '0');
+    origText[i] = textOf(domAd.atoms(el));
+  });
+}
+function renumber(o) { container.querySelectorAll('[data-o="' + o + '"]').forEach((el, i) => el.setAttribute('data-s', i)); }
+function computeEdits() {
+  const by = {}, edits = {};
+  container.querySelectorAll('[data-o]').forEach(el => {
+    const o = el.getAttribute('data-o');
+    (by[o] = by[o] || []).push(textOf(domAd.atoms(el)));
+  });
+  for (let o = 0; o < origText.length; o++) {
+    const cur = by[o] || [];
+    if (cur.length !== 1 || cur[0] !== origText[o]) edits[o] = cur;
+  }
+  return edits;
+}
+function snapshot() {
+  undoStack.push(container.innerHTML);
+  if (undoStack.length > 30) undoStack.shift();
+  $('#btnUndo').disabled = false;
+}
+async function restoreEdits() {
+  try {
+    const saved = await idbGet('edits:' + docKey);
+    if (!saved || !saved.edits) return;
+    for (const o of Object.keys(saved.edits)) {
+      if (saved.orig[o] !== origText[o]) continue;               // a different file with the same name/size: skip
+      const el = container.querySelector('[data-o="' + o + '"]');
+      if (!el) continue;
+      const parts = saved.edits[o].filter(x => x !== '');
+      if (!parts.length) el.parentNode.removeChild(el);
+      else { applyParts(domAd, el, parts); renumber(o); }
+    }
+  } catch (e) {}
+}
+function updateDirty() {
+  const e = computeEdits(), snap = JSON.stringify(e);
+  dirty = snap !== savedSnap;
+  document.body.classList.toggle('dirty', dirty);
+  $('#btnSave').classList.toggle('dot', dirty);
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    const keys = Object.keys(e), orig = {};
+    keys.forEach(o => { orig[o] = origText[o]; });
+    idbSet('edits:' + docKey, keys.length ? { edits: e, orig } : null).catch(() => {});
+  }, 400);
+}
+
+/* ---- painting the page copies (with search marks when searching) ---- */
+function wrapMatch(block, m, k) {
+  const atoms = domAd.atoms(block); layout(atoms);
+  for (let i = atoms.length - 1; i >= 0; i--) {
+    const a = atoms[i];
+    if (a.kind !== 't' || a.end <= m.s || a.start >= m.e) continue;
+    const ls = Math.max(m.s - a.start, 0), le = Math.min(m.e - a.start, a.len);
+    const mid = ls > 0 ? a.node.splitText(ls) : a.node;
+    if (le - ls < mid.data.length) mid.splitText(le - ls);
+    const doc = mid.ownerDocument, mk = doc.createElement('mark');
+    mk.className = 'sm'; mk.setAttribute('data-k', k);
+    mid.parentNode.insertBefore(mk, mid); mk.appendChild(mid);
+  }
+}
+function markedHTML() {
+  const root = container.cloneNode(true), blocks = blocksOf(root), by = new Map();
+  find.matches.forEach((m, k) => { if (!by.has(m.bi)) by.set(m.bi, []); by.get(m.bi).push(k); });
+  by.forEach((ks, bi) => { for (let x = ks.length - 1; x >= 0; x--) wrapMatch(blocks[bi], find.matches[ks[x]], ks[x]); });
+  return root.innerHTML;
+}
+function paintViews() {
+  const h = (find.open && find.q && find.matches.length) ? markedHTML() : docHTML;
+  views.forEach(v => { v.flow.innerHTML = h; });
+}
+function pageOf(el) {
+  const r = el.getClientRects()[0] || el.getBoundingClientRect();
+  const fr = stB.flow.getBoundingClientRect();
+  return Math.max(0, Math.floor(((r.left - fr.left) / G.sc + 2) / G.pw));
+}
+async function applyDoc(focus) {
+  const f = focus ? [focus.getAttribute('data-o'), focus.getAttribute('data-s')] : null;
+  docHTML = container.innerHTML;
+  paintViews();
+  await measure();
+  if (f) {
+    const el = stB.flow.querySelector('[data-o="' + f[0] + '"][data-s="' + f[1] + '"]');
+    if (el) pos = pageOf(el);
+  }
+  pos = alignPos(Math.min(pos, N - 1));
+  render(true);
+  updateDirty();
+}
+
+/* ---- modals ---- */
+function showModal(id) { $('#' + id).classList.add('open'); modalOpen = true; }
+function closeModal(id) {
+  $('#' + id).classList.remove('open'); modalOpen = false;
+  if (pendingResize) { pendingResize = false; relayout(); }
+}
+
+/* ---- edit mode ---- */
+function setEditing(on) {
+  editing = on;
+  document.body.classList.toggle('editing', on);
+  $('#btnEdit').classList.toggle('on', on);
+  if (on && hasDoc) { showUI(false); toast('โหมดแก้ไข: แตะที่ย่อหน้าเพื่อแก้ไข ปัดเพื่อพลิกหน้า', 3500); }
+}
+function blockAt(x, y) {
+  let el = document.elementFromPoint(x, y);
+  el = el && el.closest ? el.closest('[data-o]') : null;
+  if (!el || !el.closest('.pv.st')) return null;
+  return container.querySelector('[data-o="' + el.getAttribute('data-o') + '"][data-s="' + el.getAttribute('data-s') + '"]');
+}
+function openEditor(el) {
+  editTarget = el;
+  $('#eta').value = textOf(domAd.atoms(el));
+  showModal('mEdit');
+  setTimeout(() => { try { $('#eta').focus(); } catch (e) {} }, 60);
+}
+async function commitEditor(del) {
+  const el = editTarget; if (!el) return;
+  const txt = $('#eta').value.replace(/\r/g, '');
+  const parts = del ? [] : txt.split('\n').filter(x => x !== '');
+  if (!parts.length && el.querySelector('img') && !confirm('ย่อหน้านี้มีรูปภาพ ถ้าลบ รูปจะหายไปด้วย ลบหรือไม่?')) return;
+  closeModal('mEdit'); editTarget = null;
+  const o = el.getAttribute('data-o');
+  if (parts.length === 1 && parts[0] === textOf(domAd.atoms(el))) return;
+  snapshot();
+  if (!parts.length) { el.parentNode.removeChild(el); await applyDoc(); return; }
+  applyParts(domAd, el, parts); renumber(o);
+  await applyDoc(el);
+}
+async function undo() {
+  if (!undoStack.length || !container) return;
+  container.innerHTML = undoStack.pop();
+  $('#btnUndo').disabled = !undoStack.length;
+  if (find.open && find.q) { find.matches = computeMatches(); find.cur = -1; }
+  await applyDoc();
+  if (find.matches.length) gotoMatch(0); else updateFindCount();
+}
+
+/* ---- find / replace ---- */
+function computeMatches() {
+  const out = [], q = find.q;
+  if (!q) return out;
+  const ql = q.toLowerCase(), blocks = blocksOf(container);
+  for (let bi = 0; bi < blocks.length; bi++) {
+    const t = textOf(domAd.atoms(blocks[bi])), lt = t.toLowerCase(), same = lt.length === t.length;
+    const hay = same ? lt : t, needle = same ? ql : q;
+    let i = 0;
+    while ((i = hay.indexOf(needle, i)) !== -1) {
+      out.push({ bi, s: i, e: i + needle.length }); i += needle.length;
+      if (out.length >= 3000) return out;
+    }
+  }
+  return out;
+}
+function updateFindCount() {
+  const n = find.matches.length;
+  $('#fcount').textContent = n ? (find.cur + 1) + '/' + n : (find.q ? '0' : '');
+  $('#frepall').textContent = 'แทนที่ทั้งหมด' + (n ? ' (' + n + ')' : '');
+}
+async function runSearch() {
+  if (!hasDoc) return;
+  find.q = $('#fq').value; find.matches = computeMatches(); find.cur = -1;
+  await applyDoc();
+  if (find.matches.length) {
+    let k = 0;
+    const marks = Array.from(stB.flow.querySelectorAll('mark.sm'));
+    for (const mk of marks) { if (pageOf(mk) >= pos) { k = Number(mk.getAttribute('data-k')); break; } }
+    gotoMatch(k);
+  } else updateFindCount();
+}
+function gotoMatch(k) {
+  const n = find.matches.length; if (!n) return;
+  k = ((k % n) + n) % n; find.cur = k;
+  document.querySelectorAll('mark.sm.cur').forEach(m => m.classList.remove('cur'));
+  views.forEach(v => v.flow.querySelectorAll('mark.sm[data-k="' + k + '"]').forEach(m => m.classList.add('cur')));
+  const el = stB.flow.querySelector('mark.sm[data-k="' + k + '"]');
+  if (el) { const p = pageOf(el); if (p < pos || p >= pos + step()) { pos = alignPos(p); render(true); } }
+  updateFindCount();
+}
+function toggleFind(on) {
+  find.open = on === undefined ? !find.open : on;
+  document.body.classList.toggle('find-open', find.open);
+  if (find.open) {
+    showUI(false);
+    setTimeout(() => { try { $('#fq').focus(); } catch (e) {} }, 60);
+    if ($('#fq').value) runSearch();
+  } else if (hasDoc) {
+    find.matches = []; find.cur = -1; paintViews();
+  }
+}
+async function replaceOne() {
+  if (!editing || find.cur < 0) return;
+  const m = find.matches[find.cur], blk = blocksOf(container)[m.bi];
+  if (!blk) return;
+  const rep = $('#frep').value;
+  snapshot();
+  replaceRange(domAd, blk, m.s, m.e, rep);
+  const bi = m.bi, nextS = m.s + rep.length;
+  find.matches = computeMatches();
+  let k = find.matches.findIndex(x => x.bi > bi || (x.bi === bi && x.s >= nextS));
+  if (k < 0) k = 0;
+  find.cur = -1;
+  await applyDoc();
+  if (find.matches.length) gotoMatch(k); else updateFindCount();
+}
+async function replaceAll() {
+  if (!editing || !find.matches.length) return;
+  const rep = $('#frep').value, blocks = blocksOf(container), by = new Map();
+  find.matches.forEach(m => { if (!by.has(m.bi)) by.set(m.bi, []); by.get(m.bi).push(m); });
+  snapshot();
+  let n = 0;
+  by.forEach((list, bi) => { for (let j = list.length - 1; j >= 0; j--) { replaceRange(domAd, blocks[bi], list[j].s, list[j].e, rep); n++; } });
+  find.matches = computeMatches(); find.cur = -1;
+  await applyDoc();
+  if (find.matches.length) gotoMatch(0); else updateFindCount();
+  toast('แทนที่ ' + n + ' แห่งแล้ว (ไม่ถูกใจ กด "เลิกทำ" ได้)', 5000);
+}
+
+/* ---- saving: build an edited copy of the original file and hand it to the iPad share sheet ---- */
+const JSZIP_URLS = ['https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'];
+let jszipPromise = null;
+function ensureJSZip() {
+  if (window.JSZip) return Promise.resolve();
+  if (jszipPromise) return jszipPromise;
+  jszipPromise = (async () => {
+    for (const url of JSZIP_URLS) {
+      try {
+        await new Promise((res, rej) => { const s = document.createElement('script'); s.src = url; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+        if (window.JSZip) return;
+      } catch (e) {}
+    }
+    jszipPromise = null; throw new Error('NOLIB');
+  })();
+  return jszipPromise;
+}
+
+async function buildSaved() {
+  const edits = computeEdits(), keys = Object.keys(edits), warnings = [];
+  const snippet = o => '“' + origText[o].slice(0, 28) + (origText[o].length > 28 ? '…' : '') + '”';
+  if (docKind === 'txt') {
+    const out = []; let o = 0;
+    txtInfo.lines.forEach(ln => {
+      if (ln.trim() === '') { out.push(ln); return; }
+      const e = edits[o++];
+      if (!e) out.push(ln); else e.filter(x => x !== '').forEach(p => out.push(p.replace(/↵/g, ' ')));
+    });
+    const body = (txtInfo.bom ? '﻿' : '') + out.join(txtInfo.eol);
+    const file = new File([body], docName, { type: 'text/plain' });
+    const note = txtInfo.enc !== 'utf-8' ? 'หมายเหตุ: ไฟล์ต้นฉบับไม่ใช่ UTF-8 ไฟล์ที่บันทึกจะเป็น UTF-8' : '';
+    return { file, warnings: note ? [note] : [], n: keys.length };
+  }
+  await ensureJSZip();
+  const zip = await window.JSZip.loadAsync(origBuf);
+  const entry = zip.file('word/document.xml');
+  if (!entry) throw new Error('NODOCXML');
+  const xdoc = new DOMParser().parseFromString(await entry.async('string'), 'application/xml');
+  if (xdoc.getElementsByTagName('parsererror').length) throw new Error('XMLFAIL');
+  const body = xdoc.getElementsByTagNameNS(W_NS, 'body')[0];
+  const paras = Array.from(body.getElementsByTagNameNS(W_NS, 'p')).map(p => ({ p, t: norm(textOf(xmlAd.atoms(p))) })).filter(x => x.t !== '');
+  const map = {}; let j = 0;
+  for (let o = 0; o < origText.length; o++) {                       // line up displayed paragraphs with the XML ones, in order
+    const key = norm(origText[o]), lim = Math.min(paras.length, j + 80);
+    for (let k = j; k < lim; k++) if (paras[k].t === key) { map[o] = k; j = k + 1; break; }
+  }
+  let done = 0;
+  for (const o of keys) {
+    const k = map[o];
+    if (k === undefined) { warnings.push('หาย่อหน้า ' + snippet(o) + ' ในไฟล์ต้นฉบับไม่เจอ จึงไม่ได้บันทึกการแก้ย่อหน้านี้'); continue; }
+    const P = paras[k].p, parts = edits[o].filter(x => x !== '');
+    if (!parts.length) {
+      const par = P.parentNode;
+      const only = par && par.localName === 'tc' && par.namespaceURI === W_NS && Array.from(par.childNodes).filter(c => c.localName === 'p').length === 1;
+      const sect = Array.from(P.getElementsByTagNameNS(W_NS, 'sectPr')).length > 0;
+      if (only || sect) applyParts(xmlAd, P, []); else par.removeChild(P);
+    } else applyParts(xmlAd, P, parts);
+    done++;
+  }
+  let xml = new XMLSerializer().serializeToString(xdoc);
+  if (!/^<\?xml/.test(xml)) xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n' + xml;
+  zip.file('word/document.xml', xml, { createFolders: false });
+  const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: DOCX_MIME });
+  return { file: new File([blob], docName, { type: DOCX_MIME }), warnings, n: done };
+}
+
+async function openSaver() {
+  if (!hasDoc) return;
+  savedFile = null;
+  $('#sMsg').textContent = 'กำลังเตรียมไฟล์…'; $('#sWarn').textContent = '';
+  $('#sShare').disabled = true; $('#sDl').disabled = true;
+  showModal('mSave');
+  try {
+    const r = await buildSaved();
+    savedFile = r.file;
+    $('#sMsg').textContent = r.n
+      ? 'พร้อมบันทึก “' + docName + '” (แก้ไข ' + r.n + ' ย่อหน้า) แตะ “บันทึกลงไฟล์…” แล้วเลือก “บันทึกลงไฟล์” → โฟลเดอร์เดิม → “แทนที่”'
+      : 'ยังไม่มีการแก้ไข ไฟล์ที่บันทึกจะเหมือนต้นฉบับ';
+    $('#sWarn').textContent = r.warnings.join('\n');
+    const canShare = !!(navigator.canShare && navigator.share && navigator.canShare({ files: [savedFile] }));
+    $('#sShare').style.display = canShare ? '' : 'none';
+    $('#sShare').disabled = !canShare; $('#sDl').disabled = false;
+  } catch (e) {
+    $('#sMsg').textContent = e && e.message === 'NOLIB' ? 'โหลดตัวช่วยสร้างไฟล์ .docx ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่'
+      : 'สร้างไฟล์ไม่สำเร็จ: ' + ((e && e.message) || 'ไม่ทราบสาเหตุ');
+  }
+}
+function markSaved() { savedSnap = JSON.stringify(computeEdits()); updateDirty(); }
+
+/* ---- wiring ---- */
+$('#btnEdit').addEventListener('click', () => setEditing(!editing));
+$('#btnUndo').addEventListener('click', undo);
+$('#btnSave').addEventListener('click', openSaver);
+$('#btnFind').addEventListener('click', () => toggleFind());
+$('#fclose').addEventListener('click', () => toggleFind(false));
+$('#fprev').addEventListener('click', () => gotoMatch(find.cur - 1));
+$('#fnext').addEventListener('click', () => gotoMatch(find.cur + 1));
+$('#fq').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 280); });
+$('#fq').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); if (find.matches.length) gotoMatch(find.cur + (e.shiftKey ? -1 : 1)); else runSearch(); }
+});
+$('#frepone').addEventListener('click', replaceOne);
+$('#frepall').addEventListener('click', replaceAll);
+$('#eok').addEventListener('click', () => commitEditor(false));
+$('#edel').addEventListener('click', () => commitEditor(true));
+$('#ecancel').addEventListener('click', () => { closeModal('mEdit'); editTarget = null; });
+$('#sClose').addEventListener('click', () => closeModal('mSave'));
+$('#sShare').addEventListener('click', async () => {
+  if (!savedFile) return;
+  try { await navigator.share({ files: [savedFile], title: savedFile.name }); markSaved(); closeModal('mSave'); toast('ส่งออกแล้ว', 2500); }
+  catch (e) { if (!e || e.name !== 'AbortError') toast('เปิดหน้าต่างบันทึกไม่ได้ ลองปุ่มดาวน์โหลดแทน', 5000); }
+});
+$('#sDl').addEventListener('click', () => {
+  if (!savedFile) return;
+  const url = URL.createObjectURL(savedFile), a = document.createElement('a');
+  a.href = url; a.download = savedFile.name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 15000);
+  markSaved();
+});
+
 /* ---------- resize ---------- */
 let rsTimer = null;
-const onResize = () => { clearTimeout(rsTimer); rsTimer = setTimeout(relayout, 250); };
+const onResize = () => { clearTimeout(rsTimer); rsTimer = setTimeout(() => { if (modalOpen) pendingResize = true; else relayout(); }, 250); };
 addEventListener('resize', onResize);
 addEventListener('orientationchange', onResize);
 
@@ -737,7 +1395,7 @@ applyTheme(); refreshPanel();
   try {
     const last = await idbGet('last');
     if (last && last.buf) { showLoading(true); await loadBuffer(last.buf, last.name); }
-  } catch (e) { document.body.classList.add('no-doc'); hasDoc = false; }
+  } catch (e) { if (!hasDoc) document.body.classList.add('no-doc'); }
   finally { showLoading(false); }
 })();
 })();
